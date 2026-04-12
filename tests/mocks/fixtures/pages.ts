@@ -1,0 +1,108 @@
+export const pageList = [
+  {
+    route: '/blog',
+    slug: 'blog',
+    template: 'blog',
+    title: 'Blog',
+    published: true,
+    visible: true,
+    routable: true,
+    date: '2024-01-15',
+    modified: 1705305600,
+    order: 1,
+    has_children: true,
+  },
+  {
+    route: '/blog/hello-world',
+    slug: 'hello-world',
+    template: 'item',
+    title: 'Hello World',
+    published: true,
+    visible: true,
+    routable: true,
+    date: '2024-03-20',
+    modified: 1710892800,
+    order: 2,
+    has_children: false,
+  },
+  {
+    route: '/about',
+    slug: 'about',
+    template: 'default',
+    title: 'About Us',
+    published: true,
+    visible: true,
+    routable: true,
+    date: '2024-02-10',
+    modified: 1707523200,
+    order: 2,
+    has_children: false,
+  },
+];
+
+export const singlePage = {
+  route: '/blog/hello-world',
+  slug: 'hello-world',
+  template: 'item',
+  title: 'Hello World',
+  content: '# Hello World\n\nThis is my first blog post.',
+  published: true,
+  visible: true,
+  routable: true,
+  date: '2024-03-20',
+  modified: 1710892800,
+  order: 2,
+  has_children: false,
+  header: {
+    title: 'Hello World',
+    taxonomy: {
+      category: ['blog'],
+      tag: ['intro', 'first-post'],
+    },
+  },
+  media: [
+    {
+      filename: 'hero.jpg',
+      url: '/blog/hello-world/hero.jpg',
+      type: 'image',
+      size: 102400,
+      modified: 1710892800,
+      width: 1920,
+      height: 1080,
+      thumbnails: {
+        small: '/api/v1/thumbnails/blog_hello-world_hero_small.jpg',
+      },
+    },
+  ],
+  languages: {
+    en: { modified: 1710892800 },
+  },
+  path: '/blog/hello-world',
+  file_path: 'user/pages/01.blog/02.hello-world/item.en.md',
+};
+
+export const createdPage = {
+  route: '/blog/new-post',
+  slug: 'new-post',
+  template: 'item',
+  title: 'New Post',
+  content: '# New Post\n\nContent here.',
+  published: true,
+  visible: true,
+  routable: true,
+  date: '2024-04-01',
+  modified: 1711929600,
+  order: 3,
+  has_children: false,
+  header: { title: 'New Post' },
+  media: [],
+  path: '/blog/new-post',
+  file_path: 'user/pages/01.blog/03.new-post/item.en.md',
+};
+
+export const pagination = {
+  page: 1,
+  per_page: 50,
+  total: 3,
+  total_pages: 1,
+};
