@@ -9,6 +9,7 @@ export function registerMediaTools(
   client: GravClient,
   ensureInit: () => Promise<void>,
 ): void {
+  // @api GET /pages/{route}/media
   server.registerTool('list_page_media', {
     title: 'List Page Media',
     description:
@@ -24,6 +25,7 @@ export function registerMediaTools(
     return toolResult(response.data);
   }));
 
+  // @api POST /pages/{route}/media
   server.registerTool('upload_page_media', {
     title: 'Upload Page Media',
     description:
@@ -49,6 +51,7 @@ export function registerMediaTools(
     return toolResult(response.data);
   }));
 
+  // @api DELETE /pages/{route}/media/{filename}
   server.registerTool('delete_page_media', {
     title: 'Delete Page Media',
     description:
@@ -65,6 +68,7 @@ export function registerMediaTools(
     return toolResult({ success: true, message: `Deleted "${args.filename}" from "${args.route}".` });
   }));
 
+  // @api GET /media
   server.registerTool('list_site_media', {
     title: 'List Site Media',
     description:
@@ -90,6 +94,7 @@ export function registerMediaTools(
     return toolResult(addPaginationInfo(response.data, response.meta));
   }));
 
+  // @api POST /media
   server.registerTool('upload_site_media', {
     title: 'Upload Site Media',
     description:
@@ -116,6 +121,7 @@ export function registerMediaTools(
     return toolResult(response.data);
   }));
 
+  // @api DELETE /media/{filename}
   server.registerTool('delete_site_media', {
     title: 'Delete Site Media',
     description:
@@ -130,6 +136,7 @@ export function registerMediaTools(
     return toolResult({ success: true, message: `Deleted "${args.path}".` });
   }));
 
+  // @api POST /media/folders
   server.registerTool('create_media_folder', {
     title: 'Create Media Folder',
     description:
@@ -144,6 +151,8 @@ export function registerMediaTools(
     return toolResult(response.data);
   }));
 
+  // @api POST /media/folders/rename
+  // @api DELETE /media/folders/{path}
   server.registerTool('manage_media_folder', {
     title: 'Manage Media Folder',
     description:

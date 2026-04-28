@@ -130,4 +130,66 @@ describe('System Tools', () => {
       expect(result.isError).toBeUndefined();
     });
   });
+
+  describe('list_environments', () => {
+    it('returns detected env and environments list', async () => {
+      const result = await callTool('list_environments');
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(data.detected).toBe('localhost');
+      expect(Array.isArray(data.environments)).toBe(true);
+      expect(data.environments[0].name).toBeDefined();
+    });
+  });
+
+  describe('create_environment', () => {
+    it('creates a new env folder', async () => {
+      const result = await callTool('create_environment', { name: 'staging', label: 'Staging' });
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(data.environments[0].name).toBe('staging');
+    });
+  });
+
+  describe('get_dashboard_widgets', () => {
+    it('returns resolved widget list with sizes', async () => {
+      const result = await callTool('get_dashboard_widgets');
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(Array.isArray(data)).toBe(true);
+      expect(data[0].sizes).toBeDefined();
+      expect(data[0].defaultSize).toBeDefined();
+    });
+  });
+
+  describe('update_dashboard_layout', () => {
+    it('echoes the saved layout', async () => {
+      const result = await callTool('update_dashboard_layout', {
+        widgets: [{ id: 'core.recent-pages', size: 'lg' }],
+      });
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(data[0].id).toBe('core.recent-pages');
+    });
+  });
+
+  describe('update_site_dashboard_layout', () => {
+    it('saves the site-default layout', async () => {
+      const result = await callTool('update_site_dashboard_layout', {
+        widgets: [{ id: 'core.system', visible: false }],
+      });
+      expect(result.isError).toBeUndefined();
+    });
+  });
+
+  describe('get_password_policy', () => {
+    it('returns policy without auth', async () => {
+      const result = await callTool('get_password_policy');
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(data.regex).toBeDefined();
+      expect(data.min_length).toBeGreaterThan(0);
+      expect(Array.isArray(data.rules)).toBe(true);
+    });
+  });
 });

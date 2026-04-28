@@ -59,6 +59,27 @@ describe('Multilingual Tools', () => {
     });
   });
 
+  describe('adopt_page_language', () => {
+    it('renames an untyped page file to a language-tagged one', async () => {
+      const result = await callTool('adopt_page_language', {
+        route: '/blog/hello-world',
+        language: 'en',
+      });
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(data.language).toBe('en');
+      expect(data.filename).toBe('default.en.md');
+    });
+
+    it('errors when language is missing', async () => {
+      const result = await callTool('adopt_page_language', {
+        route: '/blog/hello-world',
+        language: '',
+      });
+      expect(result.isError).toBe(true);
+    });
+  });
+
   describe('compare_translations', () => {
     it('returns comparison data', async () => {
       const result = await callTool('compare_translations', {

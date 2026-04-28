@@ -40,6 +40,7 @@ export interface FieldError {
 // Page types
 export interface PageSummary {
   route: string;
+  raw_route: string;
   slug: string;
   template: string;
   title: string;
@@ -93,8 +94,12 @@ export interface User {
   groups: string[];
 }
 
-export interface UserProfile extends User {
-  permissions: Record<string, boolean>;
+export interface UserProfile extends Omit<User, 'access'> {
+  super_admin: boolean;
+  access: Record<string, boolean>;
+  content_editor?: string;
+  grav_version: string;
+  admin_version: string | null;
 }
 
 // API key types
@@ -124,10 +129,12 @@ export interface PackageSummary {
   name: string;
   version: string;
   description: string;
+  description_html?: string;
   author: string;
   enabled: boolean;
   update_available: boolean;
   latest_version?: string;
+  is_symlink?: boolean;
 }
 
 export interface PackageDetail extends PackageSummary {
@@ -136,6 +143,39 @@ export interface PackageDetail extends PackageSummary {
   release_date?: string;
   screenshot?: string;
   custom_fields?: Record<string, string>;
+}
+
+// GPM update endpoints
+export interface UpdatesResponse {
+  total: number;
+  plugins: PackageSummary[];
+  themes: PackageSummary[];
+  grav?: {
+    version: string;
+    available: string;
+    is_symlink: boolean;
+  };
+}
+
+export interface GpmUpdateResult {
+  slug: string;
+  type: 'plugin' | 'theme';
+  version?: string;
+  message?: string;
+}
+
+export interface GpmUpdateAllResponse {
+  updated: GpmUpdateResult[];
+  failed: GpmUpdateResult[];
+  skipped: GpmUpdateResult[];
+  cascaded_dependencies: GpmUpdateResult[];
+}
+
+export interface GpmUpgradeGravResponse {
+  success: boolean;
+  version_before: string;
+  version_after?: string;
+  message?: string;
 }
 
 // System types
@@ -216,12 +256,79 @@ export interface DashboardStats {
   [key: string]: unknown;
 }
 
+// Notifications v2 (beta.13). v1 fields like `date` may still appear on cached
+// responses, but new servers ship the structured shape below.
 export interface Notification {
   id: string;
-  type: string;
-  message: string;
-  date: string;
+  type: 'info' | 'notice' | 'warning' | 'promo' | string;
+  icon?: string;
+  title?: string;
+  message: string; // markdown
+  link?: string;
+  image?: string;
+  accent?: string;
+  action?: { label: string; url: string };
+  dependencies?: Record<string, string>;
+  date?: string;
   [key: string]: unknown;
+}
+
+// Dashboard widgets (beta.13)
+export type WidgetSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+
+export interface DashboardWidget {
+  id: string;
+  label: string;
+  icon?: string;
+  size: WidgetSize;
+  defaultSize: WidgetSize;
+  sizes: WidgetSize[];
+  visible: boolean;
+  order: number;
+  authorize?: string;
+  plugin?: string;
+}
+
+export interface DashboardWidgetLayout {
+  id: string;
+  visible?: boolean;
+  size?: WidgetSize;
+  order?: number;
+}
+
+// Environments (beta.12)
+export interface EnvironmentEntry {
+  name: string;
+  label: string;
+  exists: boolean;
+  hasOverrides: boolean;
+}
+
+export interface EnvironmentsResponse {
+  detected: string;
+  environments: EnvironmentEntry[];
+}
+
+// Password policy (beta.13)
+export interface PasswordPolicyRule {
+  id: string;
+  label: string;
+  pattern?: string;
+}
+
+export interface PasswordPolicy {
+  regex: string;
+  min_length: number;
+  rules: PasswordPolicyRule[];
+}
+
+// Blueprint upload (beta.13)
+export interface BlueprintUploadResponse {
+  filename: string;
+  path: string; // user-rooted logical path
+  url?: string;
+  size?: number;
+  mime?: string;
 }
 
 // Plugin discovery types
@@ -300,6 +407,17 @@ export interface LanguageInfo {
 export interface PageTranslations {
   translated: string[];
   untranslated: string[];
+  // beta.7: disambiguates Grav's default-fallback behavior. `has_default_file`
+  // is true when an untyped {template}.md exists; `explicit_language_files`
+  // lists languages backed by a real {template}.{lang}.md on disk.
+  has_default_file?: boolean;
+  explicit_language_files?: string[];
+}
+
+export interface AdoptLanguageResponse {
+  route: string;
+  language: string;
+  filename: string;
 }
 
 // Taxonomy types

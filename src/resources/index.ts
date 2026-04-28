@@ -45,7 +45,8 @@ export function registerResources(
           mimeType: 'application/json',
           text: JSON.stringify({
             username: response.data.username,
-            permissions: response.data.permissions,
+            super_admin: response.data.super_admin,
+            access: response.data.access,
             groups: response.data.groups,
           }, null, 2),
         }],

@@ -1,0 +1,74 @@
+# Endpoints intentionally not exposed as MCP tools.
+# Format: METHOD /path  (one per line; # comments OK)
+# Run `npm run audit:api` to re-check.
+
+# --- Authentication / setup flows (interactive; MCP uses static API keys) ---
+POST /auth/token
+POST /auth/refresh
+POST /auth/revoke
+POST /auth/forgot-password
+POST /auth/reset-password
+POST /auth/2fa/verify
+GET  /auth/setup
+POST /auth/setup
+
+# --- Health / aliases ---
+GET /ping
+GET /systeminfo
+
+# --- /me (read by GravClient.initialize and exposed via the
+# `grav://user/permissions` MCP resource — no separate tool needed) ---
+GET /me
+
+# --- 2FA setup (requires QR code rendering and interactive verification) ---
+POST /users/{username}/2fa
+POST /users/{username}/2fa/enable
+POST /users/{username}/2fa/disable
+
+# --- Avatar upload/delete (binary; agents typically aren't doing avatar work) ---
+POST   /users/{username}/avatar
+DELETE /users/{username}/avatar
+
+# --- Admin-next internal: plugin extension points consumed via
+# `discover_plugins` already, or pure UI/script bundles. ---
+GET /sidebar/items
+GET /menubar/items
+GET /settings/panels
+GET /context-panels
+GET /floating-widgets
+GET /custom-fields
+GET /gpm/plugins/{slug}/page-script
+GET /gpm/plugins/{slug}/panel-script
+GET /gpm/plugins/{slug}/widget-script
+GET /gpm/plugins/{slug}/report-script/{reportId}
+GET /gpm/plugins/{slug}/field/{type}
+GET /gpm/themes/{slug}/field/{type}
+GET /blueprints/plugins/{plugin}/pages/{pageId}
+
+# --- Browser/admin-next utilities (binary blobs / SvelteKit data hooks) ---
+GET /thumbnails/{file}
+GET /translations/{lang}
+GET /data/resolve
+
+# --- Backup download (binary stream) and delete (use list_backups + manual rm) ---
+GET    /system/backups/{filename}/download
+DELETE /system/backups/{filename}
+
+# --- Dashboard endpoints not yet wrapped (low priority for AI workflows) ---
+GET /dashboard/feed
+GET /dashboard/popularity
+
+# --- GPM repository browse: covered via search_packages; full browse is rarely useful for an agent ---
+GET /gpm/repository/plugins
+GET /gpm/repository/themes
+GET /gpm/repository/{slug}
+POST /gpm/direct-install
+
+# --- Media rename: not yet exposed; manage_media_folder handles folder rename only ---
+POST /media/rename
+
+# --- Collab sync: high-frequency Yjs traffic, not for AI tools ---
+POST /pages/{route}/sync
+
+# --- Single webhook GET: covered by manage_webhook implicit list/get; explicit GET endpoint not separately useful ---
+GET /webhooks/{id}

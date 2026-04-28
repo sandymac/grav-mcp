@@ -69,5 +69,16 @@ describe('Config Tools', () => {
       });
       expect(result.isError).toBeUndefined();
     });
+
+    it('routes to env folder via X-Config-Environment when environment arg is set', async () => {
+      // The MSW handler echoes the body — we just verify the call succeeds.
+      // The header propagation itself is exercised at the client layer.
+      const result = await callTool('update_config', {
+        scope: 'system',
+        values: { cache: { enabled: false } },
+        environment: 'production',
+      });
+      expect(result.isError).toBeUndefined();
+    });
   });
 });

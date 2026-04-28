@@ -80,4 +80,36 @@ describe('Blueprint Tools', () => {
       expect(data.category).toContain('blog');
     });
   });
+
+  describe('upload_blueprint_file', () => {
+    it('uploads a file to a blueprint destination', async () => {
+      const png = Buffer.from('not really png').toString('base64');
+      const result = await callTool('upload_blueprint_file', {
+        destination: 'theme://images/logo',
+        scope: 'themes/quark2',
+        filename: 'logo.png',
+        content_base64: png,
+        content_type: 'image/png',
+      });
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(Array.isArray(data) ? data[0].path : data.path).toContain('user/');
+    });
+  });
+
+  describe('delete_blueprint_file', () => {
+    it('deletes by logical path', async () => {
+      const result = await callTool('delete_blueprint_file', {
+        path: 'user/themes/quark2/images/logo/logo.png',
+      });
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(data.success).toBe(true);
+    });
+
+    it('errors when path is empty', async () => {
+      const result = await callTool('delete_blueprint_file', { path: '' });
+      expect(result.isError).toBe(true);
+    });
+  });
 });

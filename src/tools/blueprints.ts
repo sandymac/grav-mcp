@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { GravClient } from '../client/grav-client.js';
-import type { PageTemplate, Blueprint, TaxonomyMap } from '../types/grav-api.js';
+import type { PageTemplate, Blueprint, TaxonomyMap, BlueprintUploadResponse } from '../types/grav-api.js';
 import { handleToolCall, toolResult } from './helpers.js';
 
 export function registerBlueprintTools(
@@ -9,6 +9,7 @@ export function registerBlueprintTools(
   client: GravClient,
   ensureInit: () => Promise<void>,
 ): void {
+  // @api GET /blueprints/pages
   server.registerTool('list_page_templates', {
     title: 'List Page Templates',
     description:
@@ -20,6 +21,11 @@ export function registerBlueprintTools(
     return toolResult(response.data);
   }));
 
+  // @api GET /blueprints/pages/{template}
+  // @api GET /blueprints/plugins/{plugin}
+  // @api GET /blueprints/themes/{theme}
+  // @api GET /blueprints/users
+  // @api GET /blueprints/config/{scope}
   server.registerTool('get_blueprint', {
     title: 'Get Blueprint',
     description:
@@ -57,6 +63,7 @@ export function registerBlueprintTools(
     return toolResult(response.data);
   }));
 
+  // @api GET /blueprints/users/permissions
   server.registerTool('get_permissions', {
     title: 'Get Permissions',
     description:
@@ -68,6 +75,7 @@ export function registerBlueprintTools(
     return toolResult(response.data);
   }));
 
+  // @api GET /taxonomy
   server.registerTool('get_taxonomy', {
     title: 'Get Taxonomy',
     description:
@@ -77,5 +85,49 @@ export function registerBlueprintTools(
     client.checkPermission('api.pages.read');
     const response = await client.get<TaxonomyMap>('/taxonomy');
     return toolResult(response.data);
+  }));
+
+  // @api POST /blueprint-upload
+  server.registerTool('upload_blueprint_file', {
+    title: 'Upload Blueprint File',
+    description:
+      'Upload a file referenced by a blueprint file/upload field (theme/plugin config form, account avatar, etc.). The `destination` is a Grav stream like `theme://images/logo`, `user://assets`, `account://avatars`, a `self@:subpath` relative to the blueprint owner, or a plain user-rooted relative path. The `scope` (`plugins/<slug>`, `themes/<slug>`, `pages/<route>`, `users/<username>`) anchors `self@:` resolution. Returns the logical user-rooted path — pass that path back to `delete_blueprint_file` to remove it. [Requires: api.media.write]',
+    inputSchema: {
+      destination: z.string().describe('Blueprint destination (stream, self@:subpath, or relative user-rooted path)'),
+      scope: z.string().describe('Owning scope: plugins/<slug>, themes/<slug>, pages/<route>, or users/<username>'),
+      filename: z.string().describe('Filename for the uploaded file'),
+      content_base64: z.string().describe('File contents, base64-encoded'),
+      content_type: z.string().optional().describe('MIME type (defaults to application/octet-stream)'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async (args) => handleToolCall(ensureInit, async () => {
+    client.checkPermission('api.media.write');
+    const buffer = Buffer.from(args.content_base64, 'base64');
+    const response = await client.uploadFile<BlueprintUploadResponse | BlueprintUploadResponse[]>(
+      '/blueprint-upload',
+      [{ filename: args.filename, content: buffer, contentType: args.content_type ?? 'application/octet-stream' }],
+      {
+        fields: {
+          destination: args.destination,
+          scope: args.scope,
+        },
+      },
+    );
+    return toolResult(response.data);
+  }));
+
+  // @api DELETE /blueprint-upload
+  server.registerTool('delete_blueprint_file', {
+    title: 'Delete Blueprint File',
+    description:
+      'Delete a file previously uploaded via `upload_blueprint_file`. Pass the logical user-rooted `path` returned from the upload response (e.g. `user/themes/quark2/images/logo/foo.png`). Idempotent — already-deleted files return success. [Requires: api.media.write]',
+    inputSchema: {
+      path: z.string().describe('User-rooted logical path returned from upload_blueprint_file'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async (args) => handleToolCall(ensureInit, async () => {
+    client.checkPermission('api.media.write');
+    await client.delete('/blueprint-upload', undefined, { body: { path: args.path } });
+    return toolResult({ success: true, path: args.path });
   }));
 }

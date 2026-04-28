@@ -17,7 +17,7 @@ export class GravClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly environment?: string;
-  private permissions: Record<string, boolean> | null = null;
+  private access: Record<string, boolean> | null = null;
   private isSuperAdmin = false;
   private rateLimitRemaining: number | null = null;
 
@@ -35,14 +35,18 @@ export class GravClient {
   async initialize(): Promise<UserProfile> {
     const response = await this.get<UserProfile>('/me');
     const user = response.data;
-    this.permissions = user.permissions ?? {};
-    this.isSuperAdmin = this.resolvePermission('admin.super');
+    this.access = user.access ?? {};
+    // Grav 2.0 API authority is gated solely on `access.api.super`; the legacy
+    // `admin.super` from admin-classic is intentionally not honored. The /me
+    // endpoint already does this resolution server-side and returns it as
+    // `super_admin`, so just trust it.
+    this.isSuperAdmin = user.super_admin === true;
     return user;
   }
 
   hasPermission(permission: string): boolean {
     if (this.isSuperAdmin) return true;
-    if (!this.permissions) return true; // Not initialized yet, let server decide
+    if (!this.access) return true; // Not initialized yet, let server decide
     return this.resolvePermission(permission);
   }
 
@@ -63,67 +67,83 @@ export class GravClient {
   async get<T>(
     path: string,
     query?: Record<string, string | number | boolean | undefined>,
+    options?: { headers?: Record<string, string> },
   ): Promise<GravResponseEnvelope<T>> {
-    return this.request<T>('GET', path, { query });
+    return this.request<T>('GET', path, { query, headers: options?.headers });
   }
 
   async post<T>(
     path: string,
     body?: Record<string, unknown>,
     query?: Record<string, string | number | boolean | undefined>,
+    options?: { headers?: Record<string, string> },
   ): Promise<GravResponseEnvelope<T>> {
-    return this.request<T>('POST', path, { body, query });
+    return this.request<T>('POST', path, { body, query, headers: options?.headers });
   }
 
   async patch<T>(
     path: string,
     body?: Record<string, unknown>,
-    options?: { etag?: string; query?: Record<string, string | number | boolean | undefined> },
+    options?: {
+      etag?: string;
+      query?: Record<string, string | number | boolean | undefined>;
+      headers?: Record<string, string>;
+    },
   ): Promise<GravResponseEnvelope<T>> {
     return this.request<T>('PATCH', path, {
       body,
       etag: options?.etag,
       query: options?.query,
+      headers: options?.headers,
     });
   }
 
   async delete(
     path: string,
     query?: Record<string, string | number | boolean | undefined>,
+    options?: { headers?: Record<string, string>; body?: Record<string, unknown> },
   ): Promise<void> {
-    await this.request('DELETE', path, { query });
+    await this.request('DELETE', path, {
+      query,
+      headers: options?.headers,
+      body: options?.body,
+    });
   }
 
   async uploadFile<T>(
     path: string,
     files: Array<{ filename: string; content: Buffer; contentType: string }>,
+    options?: {
+      method?: 'POST' | 'PUT';
+      fields?: Record<string, string>;
+      headers?: Record<string, string>;
+      query?: Record<string, string | number | boolean | undefined>;
+    },
   ): Promise<GravResponseEnvelope<T>> {
-    const boundary = `----GravMCP${Date.now()}`;
-    let body = '';
-
-    for (const file of files) {
-      body += `--${boundary}\r\n`;
-      body += `Content-Disposition: form-data; name="file${files.indexOf(file)}"; filename="${file.filename}"\r\n`;
-      body += `Content-Type: ${file.contentType}\r\n\r\n`;
-    }
-
-    // For multipart we need to use FormData with Node's fetch
     const formData = new FormData();
     for (const file of files) {
       const blob = new Blob([file.content], { type: file.contentType });
       formData.append('file', blob, file.filename);
     }
+    if (options?.fields) {
+      for (const [key, value] of Object.entries(options.fields)) {
+        formData.append(key, value);
+      }
+    }
 
-    const url = this.buildUrl(path);
+    const url = this.buildUrl(path, options?.query);
     const headers: Record<string, string> = {
       'X-API-Key': this.apiKey,
     };
     if (this.environment) {
-      headers['X-Grav-Environment'] = this.environment;
+      headers['X-Config-Environment'] = this.environment;
+    }
+    if (options?.headers) {
+      Object.assign(headers, options.headers);
     }
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: options?.method ?? 'POST',
       headers,
       body: formData,
     });
@@ -138,6 +158,7 @@ export class GravClient {
       body?: Record<string, unknown>;
       query?: Record<string, string | number | boolean | undefined>;
       etag?: string;
+      headers?: Record<string, string>;
     },
   ): Promise<GravResponseEnvelope<T>> {
     const url = this.buildUrl(path, options?.query);
@@ -148,7 +169,7 @@ export class GravClient {
     };
 
     if (this.environment) {
-      headers['X-Grav-Environment'] = this.environment;
+      headers['X-Config-Environment'] = this.environment;
     }
 
     if (options?.body) {
@@ -157,6 +178,13 @@ export class GravClient {
 
     if (options?.etag) {
       headers['If-Match'] = options.etag;
+    }
+
+    // Per-request header overrides (e.g. X-Config-Environment for update_config)
+    // win over the constructor-level environment. Spread last so callers can
+    // override Content-Type or auth in advanced cases too.
+    if (options?.headers) {
+      Object.assign(headers, options.headers);
     }
 
     const response = await fetch(url, {
@@ -225,21 +253,17 @@ export class GravClient {
   }
 
   private resolvePermission(permission: string): boolean {
-    if (!this.permissions) return false;
+    if (!this.access) return false;
 
-    // Direct match
-    if (this.permissions[permission] === true) return true;
+    // Direct match against the resolved access map returned by /me
+    if (this.access[permission] === true) return true;
 
-    // Check parent permissions (e.g., api.pages grants api.pages.read)
+    // Walk up parent permissions (e.g. `api.pages` grants `api.pages.read`),
+    // matching how the server's PermissionResolver inherits permissions.
     const parts = permission.split('.');
     for (let i = parts.length - 1; i >= 1; i--) {
       const parent = parts.slice(0, i).join('.');
-      if (this.permissions[parent] === true) return true;
-    }
-
-    // Check in access.admin.super and access.api hierarchy
-    if (permission.startsWith('api.')) {
-      if (this.permissions['access.admin.super'] === true) return true;
+      if (this.access[parent] === true) return true;
     }
 
     return false;

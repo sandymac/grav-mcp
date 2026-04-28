@@ -9,6 +9,7 @@ export function registerPageTools(
   client: GravClient,
   ensureInit: () => Promise<void>,
 ): void {
+  // @api GET /pages
   server.registerTool('list_pages', {
     title: 'List Pages',
     description:
@@ -52,6 +53,7 @@ export function registerPageTools(
     return toolResult(addPaginationInfo(response.data, response.meta));
   }));
 
+  // @api GET /pages/{route}
   server.registerTool('get_page', {
     title: 'Get Page',
     description:
@@ -81,6 +83,7 @@ export function registerPageTools(
     return toolResult(result);
   }));
 
+  // @api POST /pages
   server.registerTool('create_page', {
     title: 'Create Page',
     description:
@@ -113,6 +116,7 @@ export function registerPageTools(
     return toolResult(response.data);
   }));
 
+  // @api PATCH /pages/{route}
   server.registerTool('update_page', {
     title: 'Update Page',
     description:
@@ -147,6 +151,7 @@ export function registerPageTools(
     return toolResult(result);
   }));
 
+  // @api DELETE /pages/{route}
   server.registerTool('delete_page', {
     title: 'Delete Page',
     description:
@@ -164,6 +169,7 @@ export function registerPageTools(
     return toolResult({ success: true, message: `Page "${args.route}" deleted.` });
   }));
 
+  // @api POST /pages/{route}/move
   server.registerTool('move_page', {
     title: 'Move Page',
     description:
@@ -186,6 +192,7 @@ export function registerPageTools(
     return toolResult(response.data);
   }));
 
+  // @api POST /pages/{route}/copy
   server.registerTool('copy_page', {
     title: 'Copy Page',
     description:
@@ -204,6 +211,7 @@ export function registerPageTools(
     return toolResult(response.data);
   }));
 
+  // @api POST /pages/batch
   server.registerTool('batch_pages', {
     title: 'Batch Page Operations',
     description:
@@ -222,6 +230,7 @@ export function registerPageTools(
     return toolResult(response.data);
   }));
 
+  // @api POST /pages/{route}/reorder
   server.registerTool('reorder_pages', {
     title: 'Reorder Pages',
     description:
@@ -240,6 +249,7 @@ export function registerPageTools(
     return toolResult(response.data);
   }));
 
+  // @api POST /pages/reorganize
   server.registerTool('reorganize_pages', {
     title: 'Reorganize Pages',
     description:

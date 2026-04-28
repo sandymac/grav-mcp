@@ -9,6 +9,7 @@ export function registerWebhookTools(
   client: GravClient,
   ensureInit: () => Promise<void>,
 ): void {
+  // @api GET /webhooks
   server.registerTool('list_webhooks', {
     title: 'List Webhooks',
     description:
@@ -20,6 +21,9 @@ export function registerWebhookTools(
     return toolResult(response.data);
   }));
 
+  // @api POST /webhooks
+  // @api PATCH /webhooks/{id}
+  // @api DELETE /webhooks/{id}
   server.registerTool('manage_webhook', {
     title: 'Manage Webhook',
     description:
@@ -62,6 +66,7 @@ export function registerWebhookTools(
     }
   }));
 
+  // @api GET /webhooks/{id}/deliveries
   server.registerTool('get_webhook_deliveries', {
     title: 'Get Webhook Deliveries',
     description:
@@ -85,6 +90,7 @@ export function registerWebhookTools(
     return toolResult(addPaginationInfo(response.data, response.meta));
   }));
 
+  // @api POST /webhooks/{id}/test
   server.registerTool('test_webhook', {
     title: 'Test Webhook',
     description:

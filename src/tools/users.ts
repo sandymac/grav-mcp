@@ -9,6 +9,7 @@ export function registerUserTools(
   client: GravClient,
   ensureInit: () => Promise<void>,
 ): void {
+  // @api GET /users
   server.registerTool('list_users', {
     title: 'List Users',
     description:
@@ -30,6 +31,7 @@ export function registerUserTools(
     return toolResult(addPaginationInfo(response.data, response.meta));
   }));
 
+  // @api GET /users/{username}
   server.registerTool('get_user', {
     title: 'Get User',
     description:
@@ -46,6 +48,7 @@ export function registerUserTools(
     return toolResult(result);
   }));
 
+  // @api POST /users
   server.registerTool('create_user', {
     title: 'Create User',
     description:
@@ -76,6 +79,7 @@ export function registerUserTools(
     return toolResult(response.data);
   }));
 
+  // @api PATCH /users/{username}
   server.registerTool('update_user', {
     title: 'Update User',
     description:
@@ -105,6 +109,7 @@ export function registerUserTools(
     return toolResult(response.data);
   }));
 
+  // @api DELETE /users/{username}
   server.registerTool('delete_user', {
     title: 'Delete User',
     description:
@@ -119,6 +124,9 @@ export function registerUserTools(
     return toolResult({ success: true, message: `User "${args.username}" deleted.` });
   }));
 
+  // @api GET /users/{username}/api-keys
+  // @api POST /users/{username}/api-keys
+  // @api DELETE /users/{username}/api-keys/{keyId}
   server.registerTool('manage_api_keys', {
     title: 'Manage API Keys',
     description:

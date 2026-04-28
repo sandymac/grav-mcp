@@ -242,6 +242,138 @@ export const handlers = [
   http.post(`${BASE}/menubar/actions/:plugin/:action`, () =>
     jsonResponse({ success: true }),
   ),
+
+  // --- Additions for beta.2 → beta.15 ---
+
+  // Multilingual: adopt language (beta.7)
+  http.post(`${BASE}/pages/:route+/adopt-language`, async ({ request, params }) => {
+    const body = await request.json() as { language?: string };
+    if (!body?.language) return errorResponse(400, 'Bad Request', 'language is required');
+    const route = (params.route as string[]).join('/');
+    return jsonResponse({
+      route: '/' + route,
+      language: body.language,
+      filename: `default.${body.language}.md`,
+    });
+  }),
+
+  // Environments (beta.12)
+  http.get(`${BASE}/system/environments`, () =>
+    jsonResponse({
+      detected: 'localhost',
+      environments: [
+        { name: 'localhost', label: 'Localhost', exists: true, hasOverrides: true },
+        { name: 'production', label: 'Production', exists: true, hasOverrides: false },
+      ],
+    }),
+  ),
+  http.post(`${BASE}/system/environments`, async ({ request }) => {
+    const body = await request.json() as { name?: string; label?: string };
+    if (!body?.name) return errorResponse(400, 'Bad Request', 'name is required');
+    return HttpResponse.json(
+      {
+        data: {
+          detected: 'localhost',
+          environments: [
+            { name: body.name, label: body.label ?? body.name, exists: true, hasOverrides: false },
+          ],
+        },
+      },
+      { status: 201 },
+    );
+  }),
+
+  // Dashboard widgets (beta.13)
+  http.get(`${BASE}/dashboard/widgets`, () =>
+    jsonResponse([
+      {
+        id: 'core.recent-pages',
+        label: 'Recent Pages',
+        icon: 'clock',
+        size: 'md',
+        defaultSize: 'md',
+        sizes: ['sm', 'md', 'lg'],
+        visible: true,
+        order: 10,
+      },
+      {
+        id: 'core.system',
+        label: 'System Info',
+        icon: 'info',
+        size: 'sm',
+        defaultSize: 'sm',
+        sizes: ['xs', 'sm', 'md'],
+        visible: true,
+        order: 20,
+      },
+    ]),
+  ),
+  http.patch(`${BASE}/dashboard/layout`, async ({ request }) => {
+    const body = await request.json() as { widgets?: unknown[] };
+    return jsonResponse(body?.widgets ?? []);
+  }),
+  http.patch(`${BASE}/dashboard/site-layout`, async ({ request }) => {
+    const body = await request.json() as { widgets?: unknown[] };
+    return jsonResponse(body?.widgets ?? []);
+  }),
+
+  // Password policy (beta.13) — no auth required
+  http.get(`${BASE}/auth/password-policy`, () =>
+    jsonResponse({
+      regex: '(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,}',
+      min_length: 8,
+      rules: [
+        { id: 'digit', label: 'At least one digit' },
+        { id: 'lowercase', label: 'At least one lowercase letter' },
+        { id: 'uppercase', label: 'At least one uppercase letter' },
+        { id: 'length', label: 'Minimum 8 characters' },
+      ],
+    }),
+  ),
+
+  // Blueprint upload (beta.13)
+  http.post(`${BASE}/blueprint-upload`, () =>
+    HttpResponse.json(
+      {
+        data: [
+          { name: 'logo.png', path: 'user/themes/quark2/images/logo/logo.png' },
+        ],
+      },
+      { status: 201 },
+    ),
+  ),
+  http.delete(`${BASE}/blueprint-upload`, async ({ request }) => {
+    const body = await request.json().catch(() => null) as { path?: string } | null;
+    if (!body?.path) return errorResponse(400, 'Bad Request', 'path is required');
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // GPM update / update-all / upgrade (beta.6, dep validation in beta.14)
+  http.post(`${BASE}/gpm/update`, async ({ request }) => {
+    const body = await request.json() as { package?: string };
+    if (!body?.package) return errorResponse(400, 'Bad Request', 'package is required');
+    return jsonResponse({
+      slug: body.package,
+      type: 'plugin',
+      version: '1.2.3',
+      dependencies: [],
+    });
+  }),
+  http.post(`${BASE}/gpm/update-all`, () =>
+    jsonResponse({
+      updated: [{ slug: 'email', type: 'plugin', version: '4.0.4' }],
+      failed: [],
+      skipped: [],
+      cascaded_dependencies: [],
+    }),
+  ),
+  http.post(`${BASE}/gpm/upgrade`, () =>
+    jsonResponse({
+      success: true,
+      version_before: '2.0.0',
+      version_after: '2.0.1',
+    }),
+  ),
 ];
 
 export const mockServer = setupServer(...handlers);

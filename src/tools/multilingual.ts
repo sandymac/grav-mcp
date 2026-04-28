@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { GravClient } from '../client/grav-client.js';
-import type { LanguageInfo, PageTranslations, Page } from '../types/grav-api.js';
+import type { LanguageInfo, PageTranslations, Page, AdoptLanguageResponse } from '../types/grav-api.js';
 import { handleToolCall, toolResult } from './helpers.js';
 
 export function registerMultilingualTools(
@@ -9,6 +9,7 @@ export function registerMultilingualTools(
   client: GravClient,
   ensureInit: () => Promise<void>,
 ): void {
+  // @api GET /languages
   server.registerTool('list_languages', {
     title: 'List Languages',
     description:
@@ -20,6 +21,7 @@ export function registerMultilingualTools(
     return toolResult(response.data);
   }));
 
+  // @api GET /pages/{route}/languages
   server.registerTool('get_page_translations', {
     title: 'Get Page Translations',
     description:
@@ -35,6 +37,7 @@ export function registerMultilingualTools(
     return toolResult(response.data);
   }));
 
+  // @api POST /pages/{route}/translate
   server.registerTool('create_translation', {
     title: 'Create Translation',
     description:
@@ -59,6 +62,27 @@ export function registerMultilingualTools(
     return toolResult(response.data);
   }));
 
+  // @api POST /pages/{route}/adopt-language
+  server.registerTool('adopt_page_language', {
+    title: 'Adopt Page Language',
+    description:
+      'Claim an untyped base page file (e.g. `default.md`) as a specific language by renaming it to `{template}.{lang}.md` in place. Pure filesystem rename — content is untouched. Fails if the page already has an explicit file for that language, or if it has no untyped base file. Useful for "Save as English" workflows on sites that started single-language and later enabled multilang. [Requires: api.pages.write]',
+    inputSchema: {
+      route: z.string().describe('Page route to adopt'),
+      language: z.string().describe('Target language code (e.g. "en", "fr")'),
+    },
+    annotations: { readOnlyHint: false },
+  }, async (args) => handleToolCall(ensureInit, async () => {
+    client.checkPermission('api.pages.write');
+    const route = args.route.replace(/^\/+/, '');
+    const response = await client.post<AdoptLanguageResponse>(
+      `/pages/${route}/adopt-language`,
+      { language: args.language },
+    );
+    return toolResult(response.data);
+  }));
+
+  // @api GET /pages/{route}/compare
   server.registerTool('compare_translations', {
     title: 'Compare Translations',
     description:

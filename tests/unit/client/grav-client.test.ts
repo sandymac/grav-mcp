@@ -25,14 +25,15 @@ describe('GravClient', () => {
   });
 
   describe('initialize', () => {
-    it('fetches user profile and permissions', async () => {
+    it('fetches user profile and resolved access map', async () => {
       const client = new GravClient(config);
       const user = await client.initialize();
       expect(user.username).toBe('admin');
-      expect(user.permissions).toBeDefined();
+      expect(user.access).toBeDefined();
+      expect(user.super_admin).toBe(true);
     });
 
-    it('sets super admin flag from permissions', async () => {
+    it('sets super admin flag from /me super_admin field', async () => {
       const client = new GravClient(config);
       await client.initialize();
       expect(client.hasPermission('api.pages.read')).toBe(true);

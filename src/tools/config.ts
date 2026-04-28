@@ -9,6 +9,7 @@ export function registerConfigTools(
   client: GravClient,
   ensureInit: () => Promise<void>,
 ): void {
+  // @api GET /config
   server.registerTool('list_config_scopes', {
     title: 'List Config Scopes',
     description:
@@ -20,6 +21,7 @@ export function registerConfigTools(
     return toolResult(response.data);
   }));
 
+  // @api GET /config/{scope}
   server.registerTool('get_config', {
     title: 'Get Config',
     description:
@@ -36,22 +38,25 @@ export function registerConfigTools(
     return toolResult(result);
   }));
 
+  // @api PATCH /config/{scope}
   server.registerTool('update_config', {
     title: 'Update Config',
     description:
-      'Update configuration values for a scope. Values are deep-merged with existing config. Pass etag from get_config for conflict detection. [Requires: api.config.write]',
+      'Update configuration values for a scope. Writes are differential against the relevant parent yaml — only keys that differ from defaults are persisted, matching the hand-edit workflow. Set `environment` to target an `user/env/<env>/config/` folder via the `X-Config-Environment` header (the env must already exist — use `create_environment` first). Pass `etag` from `get_config` for conflict detection. [Requires: api.config.write]',
     inputSchema: {
       scope: z.string().describe('Config scope to update'),
-      values: z.record(z.unknown()).describe('Configuration values to set (deep-merged)'),
+      values: z.record(z.unknown()).describe('Configuration values to set (differential save vs defaults)'),
       etag: z.string().optional().describe('ETag from get_config for conflict detection'),
+      environment: z.string().optional().describe('Target env folder name (e.g. "production"); routes write to user/env/<name>/config/. Must be created via create_environment first.'),
     },
     annotations: { readOnlyHint: false },
   }, async (args) => handleToolCall(ensureInit, async () => {
     client.checkPermission('api.config.write');
+    const headers = args.environment ? { 'X-Config-Environment': args.environment } : undefined;
     const response = await client.patch<Record<string, unknown>>(
       `/config/${args.scope}`,
       args.values,
-      { etag: args.etag },
+      { etag: args.etag, headers },
     );
     const result: Record<string, unknown> = { config: response.data };
     if (response.etag) result._etag = response.etag;

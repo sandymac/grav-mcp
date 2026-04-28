@@ -4,13 +4,14 @@ export const userProfile = {
   fullname: 'Admin User',
   title: 'Administrator',
   state: 'enabled',
-  access: {
-    admin: { super: true },
-    api: { access: true },
-  },
   groups: ['administrators'],
-  permissions: {
-    'admin.super': true,
+  super_admin: true,
+  content_editor: '',
+  grav_version: '2.0.0',
+  admin_version: '2.0.0',
+  // Flat dot-notation map of resolved api.* permissions, matching what
+  // PermissionResolver::resolvedMap() returns. Super-admin → all true.
+  access: {
     'api.access': true,
     'api.pages.read': true,
     'api.pages.write': true,
@@ -29,6 +30,8 @@ export const userProfile = {
     'api.reports.read': true,
     'api.webhooks.read': true,
     'api.webhooks.write': true,
+    'api.collab.read': true,
+    'api.collab.write': true,
   },
 };
 
@@ -77,11 +80,12 @@ export const limitedUserProfile = {
   fullname: 'Editor User',
   title: 'Editor',
   state: 'enabled',
-  access: {
-    api: { access: true, pages: { read: true, write: true } },
-  },
   groups: ['editors'],
-  permissions: {
+  super_admin: false,
+  content_editor: '',
+  grav_version: '2.0.0',
+  admin_version: '2.0.0',
+  access: {
     'api.access': true,
     'api.pages.read': true,
     'api.pages.write': true,

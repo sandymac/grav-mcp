@@ -2,7 +2,7 @@
 
 MCP server for [Grav CMS](https://getgrav.org) — AI-native content management via the Grav REST API.
 
-Exposes 56 semantic tools across 11 domains, 5 resources, and 6 workflow prompts. Supports all Grav API capabilities including pages, media, configuration, users, packages, system management, webhooks, blueprints, and dynamic plugin discovery.
+Exposes 67 semantic tools across 11 domains, 5 resources, and 6 workflow prompts. Supports all Grav API capabilities including pages, media, configuration, users, packages, system management, webhooks, blueprints, environment overrides, dashboard widgets, and dynamic plugin discovery.
 
 ## Prerequisites
 
@@ -69,13 +69,14 @@ npx grav-mcp --url https://mysite.com/api --key grav_abc123 --transport http --p
 | `reorder_pages` | Write | Reorder children by slug sequence |
 | `reorganize_pages` | Write | Atomic multi-page move + reorder |
 
-### Multilingual (4 tools)
+### Multilingual (5 tools)
 
 | Tool | Type | Description |
 |---|---|---|
 | `list_languages` | Read | Configured site languages |
-| `get_page_translations` | Read | Which translations exist/missing |
+| `get_page_translations` | Read | Which translations exist/missing (incl. `has_default_file`, `explicit_language_files`) |
 | `create_translation` | Write | Create language variant of a page |
+| `adopt_page_language` | Write | Rename an untyped page file (`default.md`) to `default.{lang}.md` in place |
 | `compare_translations` | Read | Side-by-side diff of two versions |
 
 ### Media (8 tools)
@@ -97,7 +98,7 @@ npx grav-mcp --url https://mysite.com/api --key grav_abc123 --transport http --p
 |---|---|---|
 | `list_config_scopes` | Read | Available config sections |
 | `get_config` | Read | Read config by scope (with ETag) |
-| `update_config` | Write | Update config (deep merge, ETag) |
+| `update_config` | Write | Update config (differential save vs defaults, ETag, optional `environment` for `user/env/<name>/` overrides) |
 
 ### Users (6 tools)
 
@@ -110,18 +111,21 @@ npx grav-mcp --url https://mysite.com/api --key grav_abc123 --transport http --p
 | `delete_user` | Write | Delete user |
 | `manage_api_keys` | Write | List/create/revoke API keys |
 
-### Package Manager (6 tools)
+### Package Manager (9 tools)
 
 | Tool | Type | Description |
 |---|---|---|
-| `list_packages` | Read | Installed plugins/themes |
+| `list_packages` | Read | Installed plugins/themes (with `is_symlink`, `description_html`) |
 | `get_package_info` | Read | Plugin/theme details + readme |
 | `search_packages` | Read | Search GPM repository |
-| `check_updates` | Read | Available updates |
-| `install_package` | Write | Install plugin/theme |
+| `check_updates` | Read | Available updates (incl. Grav core when symlink-safe) |
+| `install_package` | Write | Install plugin/theme (auto-resolves blueprint dependencies) |
+| `update_package` | Write | Update a single package (auto-detects plugin vs theme) |
+| `update_all_packages` | Write | Bulk-update with dep validation; returns updated/failed/skipped/cascaded buckets |
+| `upgrade_grav` | Write | Self-upgrade Grav core (refuses on symlink installs) |
 | `remove_package` | Write | Remove plugin/theme |
 
-### System (7 tools)
+### System (10 tools)
 
 | Tool | Type | Description |
 |---|---|---|
@@ -132,6 +136,9 @@ npx grav-mcp --url https://mysite.com/api --key grav_abc123 --transport http --p
 | `list_backups` | Read | Available backups |
 | `get_scheduler` | Read | Scheduler jobs/status/history |
 | `run_scheduler` | Write | Trigger scheduler run |
+| `list_environments` | Read | Detected env + configurable `user/env/*` overrides |
+| `create_environment` | Write | Create a new `user/env/<name>/config/` folder |
+| `get_password_policy` | Read | Public password policy (regex, min_length, rules) |
 
 ### Webhooks (4 tools)
 
@@ -142,7 +149,7 @@ npx grav-mcp --url https://mysite.com/api --key grav_abc123 --transport http --p
 | `get_webhook_deliveries` | Read | Webhook delivery log |
 | `test_webhook` | Write | Send test payload |
 
-### Blueprints & Schema (4 tools)
+### Blueprints & Schema (6 tools)
 
 | Tool | Type | Description |
 |---|---|---|
@@ -150,14 +157,19 @@ npx grav-mcp --url https://mysite.com/api --key grav_abc123 --transport http --p
 | `get_blueprint` | Read | Field schema for page/plugin/theme/config |
 | `get_permissions` | Read | Permission actions hierarchy |
 | `get_taxonomy` | Read | Taxonomy types and values |
+| `upload_blueprint_file` | Write | Upload a file into a blueprint `destination` (theme/plugin/account scopes) |
+| `delete_blueprint_file` | Write | Delete a previously-uploaded blueprint file by logical path (idempotent) |
 
-### Dashboard & Reports (4 tools)
+### Dashboard & Reports (7 tools)
 
 | Tool | Type | Description |
 |---|---|---|
 | `get_dashboard_stats` | Read | Site overview statistics |
-| `get_notifications` | Read | System notifications |
+| `get_notifications` | Read | System notifications (v2 schema: type, icon, title, markdown, action, dependencies) |
 | `dismiss_notification` | Write | Dismiss a notification |
+| `get_dashboard_widgets` | Read | Resolved widget list (visibility, size, order, allowed sizes) |
+| `update_dashboard_layout` | Write | Save the current user's widget layout |
+| `update_site_dashboard_layout` | Write | Save the site-wide default layout (super-admin only) |
 | `run_reports` | Read | Diagnostic reports |
 
 ### Plugin Discovery (2 tools)
@@ -213,7 +225,7 @@ api.access
 └── api.webhooks.{read,write}
 ```
 
-Users with `admin.super` permission bypass all checks.
+Users with the `access.api.super` flag (returned as `super_admin: true` from `/me`) bypass all checks. The legacy `admin.super` from admin-classic is **not** honored — Grav 2.0 cleanly separates admin-classic and API/Admin-Next authority.
 
 ## Development
 
@@ -232,6 +244,33 @@ npm run build        # Compile to dist/
 ```bash
 npx @modelcontextprotocol/inspector npx tsx src/index.ts
 ```
+
+## Maintenance
+
+The Grav API plugin moves frequently. Two scripts keep this MCP in sync:
+
+```bash
+# What changed in the API plugin since I last reviewed?
+npm run changelog:since
+# After reviewing, mark a version as the new baseline:
+npm run changelog:since -- --bump 1.0.0-beta.16
+
+# Are there any API endpoints with no MCP tool, or any tools whose
+# annotated endpoint no longer exists in the router?
+npm run audit:api
+```
+
+`audit:api` parses the `// @api METHOD /path` annotations above each
+`registerTool` call and compares them against `addRoute(...)` entries in the
+plugin's `ApiRouter.php`. Any endpoint that should not be exposed (auth flows,
+2FA setup, internal admin-next bundles, etc.) lives in `.audit-ignore`. The
+script exits non-zero on drift so it can gate CI.
+
+When adding a new tool, place a `// @api METHOD /path` line directly above the
+`registerTool` call so coverage updates automatically.
+
+Both scripts default to looking up the API plugin at `../grav-api/user/plugins/api/`.
+Override via `--router` / `--changelog` flags if your local layout differs.
 
 ## License
 

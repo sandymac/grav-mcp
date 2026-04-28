@@ -19,7 +19,10 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "prepublishOnly": "npm run build"
+    "audit:api": "tsx scripts/audit-api-coverage.ts",
+    "changelog:since": "tsx scripts/changelog-since.ts",
+    "check": "npm run typecheck && npm run test",
+    "prepublishOnly": "npm run check && npm run build"
   },
   "keywords": [
     "mcp",
@@ -30,6 +33,17 @@
     "content-management"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/getgrav/grav-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/getgrav/grav-mcp/issues"
+  },
+  "homepage": "https://github.com/getgrav/grav-mcp#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18.0.0"
   },

@@ -103,4 +103,41 @@ describe('GPM Tools', () => {
       expect(result.isError).toBeUndefined();
     });
   });
+
+  describe('update_package', () => {
+    it('updates a single package by slug', async () => {
+      const result = await callTool('update_package', { package: 'email' });
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(data.slug).toBe('email');
+      expect(Array.isArray(data.dependencies)).toBe(true);
+    });
+
+    it('errors when package is missing', async () => {
+      const result = await callTool('update_package', { package: '' });
+      expect(result.isError).toBe(true);
+    });
+  });
+
+  describe('update_all_packages', () => {
+    it('returns four-bucket response', async () => {
+      const result = await callTool('update_all_packages');
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(Array.isArray(data.updated)).toBe(true);
+      expect(Array.isArray(data.failed)).toBe(true);
+      expect(Array.isArray(data.skipped)).toBe(true);
+      expect(Array.isArray(data.cascaded_dependencies)).toBe(true);
+    });
+  });
+
+  describe('upgrade_grav', () => {
+    it('reports before/after versions on success', async () => {
+      const result = await callTool('upgrade_grav');
+      expect(result.isError).toBeUndefined();
+      const data = JSON.parse(result.content[0].text);
+      expect(data.success).toBe(true);
+      expect(data.version_before).toBe('2.0.0');
+    });
+  });
 });

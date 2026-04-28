@@ -30,6 +30,8 @@ export function registerPluginTools(
   client: GravClient,
   ensureInit: () => Promise<void>,
 ): void {
+  // @api GET /sidebar/items
+  // @api GET /gpm/plugins/{slug}/page
   server.registerTool('discover_plugins', {
     title: 'Discover Plugin Features',
     description:
@@ -81,6 +83,7 @@ export function registerPluginTools(
     return toolResult(discoveryCache);
   }));
 
+  // @api POST /menubar/actions/{plugin}/{action}
   server.registerTool('plugin_action', {
     title: 'Execute Plugin Action',
     description:
