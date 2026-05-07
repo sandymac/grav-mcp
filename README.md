@@ -31,7 +31,7 @@ Add to your Claude Code MCP config:
 }
 ```
 
-### Command Line
+### Running The MCP Server
 
 ```bash
 # Via environment variables (recommended)
