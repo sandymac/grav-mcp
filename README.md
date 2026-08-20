@@ -218,12 +218,14 @@ api.access
 ├── api.media.{read,write}
 ├── api.config.{read,write}
 ├── api.users.{read,write}
-├── api.system.{read,write}
+├── api.system.{read,write,backup}
 ├── api.gpm.{read,write}
 ├── api.scheduler.{read,write}
 ├── api.reports.read
 └── api.webhooks.{read,write}
 ```
+
+`api.system.backup` is a dedicated grant for creating, listing, downloading and deleting backups. Backup archives contain account password hashes and config secrets, so it is deliberately not implied by `api.system.read` or `api.system.write`.
 
 Users with the `access.api.super` flag (returned as `super_admin: true` from `/me`) bypass all checks. The legacy `admin.super` from admin-classic is **not** honored — Grav 2.0 cleanly separates admin-classic and API/Admin-Next authority.
 

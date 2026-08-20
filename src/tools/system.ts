@@ -8,6 +8,7 @@ import type {
   DashboardStats,
   Notification,
   EnvironmentsResponse,
+  EnvironmentEntry,
   DashboardWidget,
   DashboardWidgetLayout,
   PasswordPolicy,
@@ -75,10 +76,10 @@ export function registerSystemTools(
   server.registerTool('create_backup', {
     title: 'Create Backup',
     description:
-      'Create a full backup of the Grav installation. Returns the backup filename, size, and date. [Requires: api.system.write]',
+      'Create a full backup of the Grav installation. Returns the backup filename, size, and date. [Requires: api.system.backup]',
     annotations: { readOnlyHint: false },
   }, async () => handleToolCall(ensureInit, async () => {
-    client.checkPermission('api.system.write');
+    client.checkPermission('api.system.backup');
     const response = await client.post<BackupInfo>('/system/backup');
     return toolResult(response.data);
   }));
@@ -87,10 +88,10 @@ export function registerSystemTools(
   server.registerTool('list_backups', {
     title: 'List Backups',
     description:
-      'List all available backups with filenames, sizes, and dates. [Requires: api.system.read]',
+      'List all available backups with filenames, sizes, and dates. [Requires: api.system.backup]',
     annotations: { readOnlyHint: true },
   }, async () => handleToolCall(ensureInit, async () => {
-    client.checkPermission('api.system.read');
+    client.checkPermission('api.system.backup');
     const response = await client.get<BackupInfo[]>('/system/backups');
     return toolResult(response.data);
   }));
@@ -201,17 +202,14 @@ export function registerSystemTools(
   server.registerTool('create_environment', {
     title: 'Create Environment',
     description:
-      'Create a new `user/env/<name>/config/` folder for environment-scoped configuration overrides. Environments are not created implicitly — clients must opt in. [Requires: api.system.write]',
+      'Create a new `user/env/<name>/config/` folder for environment-scoped configuration overrides. Environments are not created implicitly — clients must opt in. Returns the new environment entry (`name`, `label`, `exists`, `hasOverrides`); the label is always the folder name. [Requires: api.config.write]',
     inputSchema: {
       name: z.string().describe('Environment name (folder under user/env/, e.g. "production", "staging")'),
-      label: z.string().optional().describe('Human-readable label (defaults to name)'),
     },
     annotations: { readOnlyHint: false },
   }, async (args) => handleToolCall(ensureInit, async () => {
-    client.checkPermission('api.system.write');
-    const body: Record<string, unknown> = { name: args.name };
-    if (args.label !== undefined) body.label = args.label;
-    const response = await client.post<EnvironmentsResponse>('/system/environments', body);
+    client.checkPermission('api.config.write');
+    const response = await client.post<EnvironmentEntry>('/system/environments', { name: args.name });
     return toolResult(response.data);
   }));
 
@@ -220,10 +218,10 @@ export function registerSystemTools(
   server.registerTool('get_dashboard_widgets', {
     title: 'Get Dashboard Widgets',
     description:
-      'Get the resolved dashboard widget list (visibility, size, order) merged from the core registry, plugin contributions, the site-wide layout, and the current user\'s overrides. Each widget carries `sizes[]`, `defaultSize`, `icon`, and `authorize` permission so clients can render the customize-mode size picker. [Requires: api.system.read]',
+      'Get the resolved dashboard widget list (visibility, size, order) merged from the core registry, plugin contributions, the site-wide layout, and the current user\'s overrides. Each widget carries `sizes[]`, `defaultSize`, `icon`, and `authorize` permission so clients can render the customize-mode size picker. [Requires: api.access]',
     annotations: { readOnlyHint: true },
   }, async () => handleToolCall(ensureInit, async () => {
-    client.checkPermission('api.system.read');
+    client.checkPermission('api.access');
     const response = await client.get<DashboardWidget[]>('/dashboard/widgets');
     return toolResult(response.data);
   }));
@@ -232,7 +230,7 @@ export function registerSystemTools(
   server.registerTool('update_dashboard_layout', {
     title: 'Update Dashboard Layout',
     description:
-      'Save the current user\'s dashboard layout (visibility, size, order per widget). Site-hidden widgets cannot be re-enabled per-user. Stale or unsupported sizes are silently coerced server-side back to the widget\'s `defaultSize`. [Requires: api.system.write]',
+      'Save the current user\'s dashboard layout (visibility, size, order per widget). Site-hidden widgets cannot be re-enabled per-user. Stale or unsupported sizes are silently coerced server-side back to the widget\'s `defaultSize`. [Requires: api.access]',
     inputSchema: {
       widgets: z.array(z.object({
         id: z.string(),
@@ -243,7 +241,7 @@ export function registerSystemTools(
     },
     annotations: { readOnlyHint: false },
   }, async (args) => handleToolCall(ensureInit, async () => {
-    client.checkPermission('api.system.write');
+    client.checkPermission('api.access');
     const response = await client.patch<DashboardWidget[]>('/dashboard/layout', {
       widgets: args.widgets as unknown as DashboardWidgetLayout[],
     });

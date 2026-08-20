@@ -29,7 +29,7 @@ export function registerBlueprintTools(
   server.registerTool('get_blueprint', {
     title: 'Get Blueprint',
     description:
-      'Get the full field schema (blueprint) for a page template, plugin config, theme config, user accounts, or system config. The blueprint describes all available fields, their types, validation rules, and default values. Types: "page" (page templates), "plugin" (plugin config), "theme" (theme config), "user" (user account fields), "config" (system/site config). [Requires: api.pages.read or api.config.read]',
+      'Get the full field schema (blueprint) for a page template, plugin config, theme config, user accounts, or system config. The blueprint describes all available fields, their types, validation rules, and default values. Types: "page" (page templates), "plugin" (plugin config), "theme" (theme config), "user" (user account fields), "config" (system/site config). [Requires: api.pages.read for "page", api.config.read for "plugin"/"theme"/"config", api.access for "user"]',
     inputSchema: {
       type: z.enum(['page', 'plugin', 'theme', 'user', 'config']).describe('Blueprint type'),
       name: z.string().describe('Blueprint name: template name for "page", plugin/theme slug for "plugin"/"theme", "users" for "user", scope for "config"'),
@@ -51,7 +51,9 @@ export function registerBlueprintTools(
         path = `/blueprints/themes/${args.name}`;
         break;
       case 'user':
-        client.checkPermission('api.users.read');
+        // The account form schema is needed by every authenticated user to render
+        // their own profile, so the server only gates it on api.access.
+        client.checkPermission('api.access');
         path = '/blueprints/users';
         break;
       case 'config':

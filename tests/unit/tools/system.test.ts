@@ -144,10 +144,12 @@ describe('System Tools', () => {
 
   describe('create_environment', () => {
     it('creates a new env folder', async () => {
-      const result = await callTool('create_environment', { name: 'staging', label: 'Staging' });
+      const result = await callTool('create_environment', { name: 'staging' });
       expect(result.isError).toBeUndefined();
       const data = JSON.parse(result.content[0].text);
-      expect(data.environments[0].name).toBe('staging');
+      expect(data.name).toBe('staging');
+      expect(data.label).toBe('staging');
+      expect(data.exists).toBe(true);
     });
   });
 

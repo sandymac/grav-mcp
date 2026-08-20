@@ -268,17 +268,12 @@ export const handlers = [
     }),
   ),
   http.post(`${BASE}/system/environments`, async ({ request }) => {
-    const body = await request.json() as { name?: string; label?: string };
+    // Mirrors SystemController::createEnvironment(): only `name` is read and the
+    // response is a single entry whose label is always the name.
+    const body = await request.json() as { name?: string };
     if (!body?.name) return errorResponse(400, 'Bad Request', 'name is required');
     return HttpResponse.json(
-      {
-        data: {
-          detected: 'localhost',
-          environments: [
-            { name: body.name, label: body.label ?? body.name, exists: true, hasOverrides: false },
-          ],
-        },
-      },
+      { data: { name: body.name, label: body.name, exists: true, hasOverrides: false } },
       { status: 201 },
     );
   }),

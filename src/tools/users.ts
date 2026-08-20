@@ -130,7 +130,7 @@ export function registerUserTools(
   server.registerTool('manage_api_keys', {
     title: 'Manage API Keys',
     description:
-      'List, create, or revoke API keys for a user. For "create": returns the key value once — save it immediately. For "revoke": provide the key_id. [Requires: api.users.write]',
+      'List, create, or revoke API keys for a user. For "create": returns the key value once — save it immediately. For "revoke": provide the key_id. [Requires: api.users.read for "list", api.users.write for "create"/"revoke"; your own account only needs api.access]',
     inputSchema: {
       username: z.string().describe('Username whose API keys to manage'),
       action: z.enum(['list', 'create', 'revoke']).describe('Action to perform'),
@@ -140,7 +140,9 @@ export function registerUserTools(
     },
     annotations: { readOnlyHint: false },
   }, async (args) => handleToolCall(ensureInit, async () => {
-    client.checkPermission('api.users.write');
+    // Server: self-access needs only api.access; otherwise read for list, write
+    // for create/revoke. Pre-flight on the weaker tier and let the server decide.
+    client.checkPermission(args.action === 'list' ? 'api.users.read' : 'api.users.write');
 
     switch (args.action) {
       case 'list': {

@@ -94,13 +94,13 @@ export function registerWebhookTools(
   server.registerTool('test_webhook', {
     title: 'Test Webhook',
     description:
-      'Send a test payload to a webhook endpoint to verify it is receiving and processing correctly. [Requires: api.webhooks.read]',
+      'Send a test payload to a webhook endpoint to verify it is receiving and processing correctly. [Requires: api.webhooks.write]',
     inputSchema: {
       webhook_id: z.string().describe('Webhook ID to test'),
     },
     annotations: { readOnlyHint: false },
   }, async (args) => handleToolCall(ensureInit, async () => {
-    client.checkPermission('api.webhooks.read');
+    client.checkPermission('api.webhooks.write');
     const response = await client.post<unknown>(`/webhooks/${args.webhook_id}/test`);
     return toolResult(response.data);
   }));
