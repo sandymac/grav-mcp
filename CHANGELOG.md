@@ -1,5 +1,5 @@
 # v0.1.1
-## 08/20/2026
+## 08/25/2026
 
 1. [](#bugfix)
     * Fixed the pre-flight permission checks on `create_backup` and `list_backups`, which refused keys that hold the `api.system.backup` permission the API actually requires [#2](https://github.com/getgrav/grav-mcp/issues/2) (thanks @sandymac)
