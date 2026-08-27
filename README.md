@@ -135,7 +135,7 @@ npx grav-mcp --url https://mysite.com/api --key grav_abc123 --transport http --p
 | `create_backup` | Write | Create full backup |
 | `list_backups` | Read | Available backups |
 | `get_scheduler` | Read | Scheduler jobs/status/history |
-| `run_scheduler` | Write | Trigger scheduler run |
+| `run_scheduler` | Write | Run the jobs that have missed their scheduled time |
 | `list_environments` | Read | Detected env + configurable `user/env/*` overrides |
 | `create_environment` | Write | Create a new `user/env/<name>/config/` folder |
 | `get_password_policy` | Read | Public password policy (regex, min_length, rules) |

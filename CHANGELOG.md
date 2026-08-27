@@ -1,3 +1,9 @@
+# v0.1.2
+## 08/27/2026
+
+1. [](#improved)
+    * `run_scheduler` now describes what it actually does: it runs every job that has missed its scheduled time, not only the ones due in the current minute. Nothing about the call changed, but the old wording had it looking useless, since a job counts as due only during the exact minute its schedule names
+
 # v0.1.1
 ## 08/25/2026
 

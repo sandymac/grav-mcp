@@ -125,7 +125,11 @@ export function registerSystemTools(
   server.registerTool('run_scheduler', {
     title: 'Run Scheduler',
     description:
-      'Manually trigger a scheduler run to execute due jobs immediately. [Requires: api.scheduler.write]',
+      'Run scheduler jobs now, without waiting for cron. Runs every job that has missed its last '
+      + 'scheduled time, because a job counts as due only during the exact minute its schedule '
+      + 'names. Reports which jobs ran, whether each succeeded and what it printed. Runs are '
+      + 'recorded as manual and do not count towards the scheduler\'s cron status. '
+      + '[Requires: api.scheduler.write]',
     annotations: { readOnlyHint: false },
   }, async () => handleToolCall(ensureInit, async () => {
     client.checkPermission('api.scheduler.write');
