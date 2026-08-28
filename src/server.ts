@@ -9,7 +9,10 @@ import { registerGpmTools } from './tools/gpm.js';
 import { registerSystemTools } from './tools/system.js';
 import { registerWebhookTools } from './tools/webhooks.js';
 import { registerBlueprintTools } from './tools/blueprints.js';
-import { registerPluginTools } from './tools/plugins.js';
+// Plugin discovery (sidebar, widgets, panels) and plugin-published tools both
+// register "plugin" tools, so the discovery module is aliased here.
+import { registerPluginTools as registerPluginDiscoveryTools } from './tools/plugins.js';
+import { registerPluginTools, type PluginToolsMode } from './tools/plugin-tools.js';
 import { registerResources } from './resources/index.js';
 import { registerPrompts } from './prompts/index.js';
 
@@ -17,6 +20,8 @@ export interface ServerConfig {
   url: string;
   apiKey: string;
   environment?: string;
+  /** Which plugin-published tools to load: 'all' (default), 'none', or a list of plugin slugs. */
+  pluginTools?: PluginToolsMode;
 }
 
 export function createServer(config: ServerConfig): McpServer {
@@ -65,7 +70,12 @@ export function createServer(config: ServerConfig): McpServer {
   registerSystemTools(server, client, ensureInitialized);
   registerWebhookTools(server, client, ensureInitialized);
   registerBlueprintTools(server, client, ensureInitialized);
-  registerPluginTools(server, client, ensureInitialized);
+  registerPluginDiscoveryTools(server, client, ensureInitialized);
+
+  // Tools published by plugins via mcp.yaml. This only registers the core
+  // refresh_plugin_tools tool; the plugin tools themselves arrive when
+  // loadPluginTools(server) runs, before the transport connects.
+  registerPluginTools(server, client, ensureInitialized, { mode: config.pluginTools ?? 'all' });
 
   // Register resources and prompts
   registerResources(server, client, ensureInitialized);

@@ -8,6 +8,7 @@ import * as gpmFixtures from './fixtures/gpm.js';
 import * as webhookFixtures from './fixtures/webhooks.js';
 import * as blueprintFixtures from './fixtures/blueprints.js';
 import * as pluginFixtures from './fixtures/plugins.js';
+import { mcpToolsResponse } from './fixtures/mcp-tools.js';
 
 const BASE = '*/v1';
 
@@ -369,6 +370,47 @@ export const handlers = [
       version_after: '2.0.1',
     }),
   ),
+
+  // --- Plugin tool manifests (docs/plugin-tools-spec.md) ---
+
+  http.get(`${BASE}/mcp/tools`, () => jsonResponse(mcpToolsResponse)),
+
+  // Routes a plugin manifest points at. They echo what the request carried so
+  // tests can assert path substitution and the query/body split.
+  http.get(`${BASE}/kahunacart/products`, async ({ request }) =>
+    jsonResponse(await echoRequest(request), {
+      pagination: { page: 1, per_page: 20, total: 3, total_pages: 1 },
+    }),
+  ),
+  http.post(`${BASE}/kahunacart/products`, async ({ request }) =>
+    jsonResponse(await echoRequest(request)),
+  ),
+  http.get(`${BASE}/kahunacart/products/:id`, async ({ request }) =>
+    jsonResponse(await echoRequest(request)),
+  ),
+  http.patch(`${BASE}/kahunacart/products/:id`, async ({ request }) =>
+    jsonResponse(await echoRequest(request)),
+  ),
+  http.put(`${BASE}/kahunacart/products/:id`, async ({ request }) =>
+    jsonResponse(await echoRequest(request)),
+  ),
+  http.delete(`${BASE}/kahunacart/attributes/:id`, async ({ request }) =>
+    jsonResponse(await echoRequest(request)),
+  ),
 ];
+
+async function echoRequest(request: Request) {
+  const url = new URL(request.url);
+  let body: unknown = null;
+  if (request.method !== 'GET') {
+    body = await request.json().catch(() => null);
+  }
+  return {
+    method: request.method,
+    path: url.pathname,
+    query: Object.fromEntries(url.searchParams.entries()),
+    body,
+  };
+}
 
 export const mockServer = setupServer(...handlers);

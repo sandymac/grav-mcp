@@ -151,7 +151,12 @@ export class GravClient {
     return this.handleResponse<T>(response);
   }
 
-  private async request<T>(
+  /**
+   * Generic request escape hatch. Used by plugin-provided tools, whose method,
+   * path, query and body all come from a manifest rather than from a
+   * hand-written tool.
+   */
+  async request<T>(
     method: string,
     path: string,
     options?: {
@@ -207,8 +212,10 @@ export class GravClient {
       return { data: undefined as T };
     }
 
+    // Errors arrive as RFC 7807 `application/problem+json`; treat every JSON
+    // media type as JSON so the problem detail reaches the error mapper.
     const contentType = response.headers.get('Content-Type') || '';
-    if (!contentType.includes('application/json')) {
+    if (!/application\/(?:[\w.+-]+\+)?json/i.test(contentType)) {
       if (!response.ok) {
         throw new GravApiError(
           `HTTP ${response.status}: ${response.statusText}`,

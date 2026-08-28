@@ -2,7 +2,7 @@
 
 MCP server for [Grav CMS](https://getgrav.org) — AI-native content management via the Grav REST API.
 
-Exposes 67 semantic tools across 11 domains, 5 resources, and 6 workflow prompts. Supports all Grav API capabilities including pages, media, configuration, users, packages, system management, webhooks, blueprints, environment overrides, dashboard widgets, and dynamic plugin discovery.
+Exposes 71 semantic tools across 11 domains, 5 resources, and 6 workflow prompts, plus any tools your installed plugins publish. Supports all Grav API capabilities including pages, media, configuration, users, packages, system management, webhooks, blueprints, environment overrides, dashboard widgets, and dynamic plugin discovery.
 
 ## Prerequisites
 
@@ -51,6 +51,7 @@ npx grav-mcp --url https://mysite.com/api --key grav_abc123 --transport http --p
 | `GRAV_API_URL` | `--url` | Yes | Base URL of the Grav API |
 | `GRAV_API_KEY` | `--key` | Yes | API key (starts with `grav_`) |
 | `GRAV_ENVIRONMENT` | `--environment` | No | Multi-environment override |
+| `GRAV_MCP_PLUGIN_TOOLS` | `--plugin-tools` | No | Which plugin-published tools to load: `all` (default), `none`, or a comma-separated list of plugin slugs |
 
 ## Tools Reference
 
@@ -172,12 +173,100 @@ npx grav-mcp --url https://mysite.com/api --key grav_abc123 --transport http --p
 | `update_site_dashboard_layout` | Write | Save the site-wide default layout (super-admin only) |
 | `run_reports` | Read | Diagnostic reports |
 
-### Plugin Discovery (2 tools)
+### Plugin Discovery (3 tools)
 
 | Tool | Type | Description |
 |---|---|---|
-| `discover_plugins` | Read | Plugin-provided features (sidebar, widgets, panels, pages) |
+| `discover_plugins` | Read | Plugin-provided features (sidebar, widgets, panels, pages, published tools) |
 | `plugin_action` | Write | Execute plugin menubar action |
+| `refresh_plugin_tools` | Write | Re-read plugin tool manifests and add/update/remove their tools |
+
+### Plugin Tools
+
+Any Grav plugin can publish its own tools, and grav-mcp picks them up with no code written here and no restart of your editor. The first plugin to do so is [KahunaCart](https://kahunacart.com), whose 92 tools let an assistant run a store: products, attributes, categories, coupons, sales, orders, refunds, customers, reports and payment providers. Its Licenses and Subscriptions add-ons publish their own tools alongside.
+
+#### How it works
+
+1. A plugin ships an `mcp.yaml` manifest at its root describing its API routes as tools: a name, a description written for a model, the method and path, the permission the route enforces, read-only and destructive hints, and a JSON Schema for the arguments. Plugins that build tools from runtime data answer the `onApiMcpTools` event instead.
+2. The API plugin (1.0.22 or later) serves the union of every enabled plugin's manifest at `GET /mcp/tools`, filtered to the tools your API key's permissions allow.
+3. At startup grav-mcp fetches that list and registers one MCP tool per entry, named `<plugin>_<name>` so plugin tools never shadow the core ones. Each description ends with `[Requires: <permission>] (plugin: <slug>)`.
+4. When the assistant calls a tool, grav-mcp checks the permission the same way it does for core tools, fills the `{id}`-style path parameters from the arguments, sends the rest as the query string on `GET` or as the JSON body otherwise (a manifest can name arguments that travel as query parameters on a write), and returns the response `data`. Errors come back with the API's own detail, so a `409` from a plugin says why (an attribute still in use, a slug already taken) rather than being mistaken for an ETag conflict.
+
+#### Example: a KahunaCart store
+
+Generate a key for a user who holds the `kahunacart.*` permissions you want the assistant to have, then point grav-mcp at the store as usual:
+
+```json
+{
+  "mcpServers": {
+    "shop": {
+      "command": "npx",
+      "args": ["-y", "grav-mcp"],
+      "env": {
+        "GRAV_API_URL": "https://shop.example.com/api",
+        "GRAV_API_KEY": "grav_your_store_key"
+      }
+    }
+  }
+}
+```
+
+Ask the assistant to run `discover_plugins`; `mcp_tools` lists `kahunacart` with every tool that key can see. From there, requests like these map straight onto tools:
+
+| Ask | Tools used |
+|---|---|
+| "Which products are low on stock?" | `kahunacart_report_low_stock` |
+| "Add a Material attribute with cotton and linen, then set the Reef Runner tee to cotton" | `kahunacart_create_attribute`, `kahunacart_list_products`, `kahunacart_update_product` |
+| "Refund order 482 in full" | `kahunacart_get_order`, `kahunacart_refund_order` |
+| "Create a 20% sale on the Apparel category until the end of the month" | `kahunacart_list_categories`, `kahunacart_create_sale` |
+| "Sync the catalog to Stripe" | `kahunacart_sync_provider` |
+
+Refunds, cancellations, deletions and revocations carry `destructiveHint`, so a client that confirms destructive tools will ask first. Read tools carry `readOnlyHint`. A store with `demo.readonly` on refuses every write with a 403.
+
+A key that lacks a permission simply does not receive the tools behind it: the list an assistant sees is the list it can use. Give a reporting assistant a key with `kahunacart.reports` and `kahunacart.orders.view` and it gets the reports and order lookups and nothing else.
+
+#### Keeping the list current
+
+Install or enable a plugin while the server is running and `refresh_plugin_tools` picks up the change: it re-reads the manifests, adds new tools, updates changed ones, drops tools whose plugin went away, and reports `{added, updated, removed, warnings, plugins}`. MCP clients are told the tool list changed. `discover_plugins` reports the loaded tools grouped by plugin under `mcp_tools`.
+
+If the site is unreachable, the key lacks `api.access`, or the API plugin is old enough that it has no `/mcp/tools` endpoint, grav-mcp prints a warning to stderr and starts with core tools only.
+
+Use `--plugin-tools none` (or `GRAV_MCP_PLUGIN_TOOLS=none`) to turn plugin tools off, or `--plugin-tools kahunacart,kahunacart-licenses` to load only certain plugins.
+
+#### Publishing tools from your own plugin
+
+Drop an `mcp.yaml` next to your `blueprints.yaml`:
+
+```yaml
+version: 1
+prefix: myshop            # optional; defaults to the plugin slug
+tools:
+  - name: list_widgets
+    title: List widgets
+    description: >
+      List widgets with paging and a search term. Returns id, title and status per widget.
+    method: GET
+    path: /myshop/widgets
+    permission: myshop.widgets.view
+    input:
+      type: object
+      properties:
+        q: { type: string, description: "Search title or slug" }
+        page: { type: integer, minimum: 1, default: 1 }
+
+  - name: delete_widget
+    description: Delete a widget by id. Answers 409 while orders reference it.
+    method: DELETE
+    path: /myshop/widgets/{id}
+    permission: myshop.widgets.manage
+    input:
+      type: object
+      required: [id]
+      properties:
+        id: { type: integer }
+```
+
+Names must match `^[a-z][a-z0-9_]*$`; `GET` tools default to read-only and `DELETE` tools to destructive; a `{param}` in the path must be a property in `input` and is required. The full field table, the JSON Schema subset the loader accepts, the `onApiMcpTools` event and what `/mcp/tools` returns are in the [API plugin README](https://github.com/getgrav/grav-plugin-api#mcp-tool-manifests). A manifest entry the API plugin rejects is reported under `warnings` in the `/mcp/tools` response and by `refresh_plugin_tools`, naming the entry and the rule it broke.
 
 ## Resources
 

@@ -10,6 +10,7 @@ import type {
   PackageSummary,
 } from '../types/grav-api.js';
 import { handleToolCall, toolResult } from './helpers.js';
+import { getPluginToolSummaries } from './plugin-tools.js';
 
 interface DiscoveryResult {
   sidebar_items: SidebarItem[];
@@ -25,6 +26,17 @@ export function clearDiscoveryCache(): void {
   discoveryCache = null;
 }
 
+/**
+ * The plugin tools loaded from /mcp/tools are read from the loader's last
+ * response, never re-fetched, and are added outside the cache so they stay
+ * current after a refresh_plugin_tools call.
+ */
+function withPluginTools(discovery: DiscoveryResult): DiscoveryResult & {
+  mcp_tools: Array<{ plugin: string; tools: string[] }>;
+} {
+  return { ...discovery, mcp_tools: getPluginToolSummaries() };
+}
+
 export function registerPluginTools(
   server: McpServer,
   client: GravClient,
@@ -35,7 +47,7 @@ export function registerPluginTools(
   server.registerTool('discover_plugins', {
     title: 'Discover Plugin Features',
     description:
-      'Discover what features installed plugins expose: sidebar navigation items, floating widgets, context panels, settings panels, and custom admin pages. This reveals all plugin-provided functionality that can be accessed through the API. Use get_config/update_config to read/write plugin configuration. [Requires: api.access]',
+      'Discover what features installed plugins expose: sidebar navigation items, floating widgets, context panels, settings panels, custom admin pages, and the MCP tools plugins publish through their manifests (mcp_tools). This reveals all plugin-provided functionality that can be accessed through the API. Use get_config/update_config to read/write plugin configuration. [Requires: api.access]',
     inputSchema: {
       refresh: z.boolean().optional().describe('Force refresh the discovery cache'),
     },
@@ -44,7 +56,7 @@ export function registerPluginTools(
     client.checkPermission('api.access');
 
     if (discoveryCache && !args.refresh) {
-      return toolResult(discoveryCache);
+      return toolResult(withPluginTools(discoveryCache));
     }
 
     // Fetch all discovery endpoints in parallel
@@ -80,7 +92,7 @@ export function registerPluginTools(
       plugin_pages: pluginPages,
     };
 
-    return toolResult(discoveryCache);
+    return toolResult(withPluginTools(discoveryCache));
   }));
 
   // @api POST /menubar/actions/{plugin}/{action}

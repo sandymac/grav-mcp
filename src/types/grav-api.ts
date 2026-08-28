@@ -1,3 +1,5 @@
+import type { JsonSchemaNode } from '../client/json-schema.js';
+
 // API response envelope
 export interface ApiResponse<T> {
   data: T;
@@ -394,6 +396,43 @@ export interface SettingsPanel {
   data_endpoint: string;
   save_endpoint: string;
   priority: number;
+}
+
+// Plugin MCP tool manifests (GET /mcp/tools)
+export type McpToolMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+
+export interface McpToolAnnotations {
+  readOnly?: boolean;
+  destructive?: boolean;
+  idempotent?: boolean;
+}
+
+export interface McpToolDefinition {
+  name: string;
+  plugin: string;
+  title?: string;
+  description: string;
+  method: McpToolMethod;
+  path: string;
+  permission?: string | null;
+  annotations?: McpToolAnnotations;
+  input_schema?: JsonSchemaNode | null;
+  path_params?: string[];
+  query?: string[];
+}
+
+export interface McpPluginSummary {
+  slug: string;
+  name: string;
+  version?: string;
+  tools: number;
+}
+
+export interface McpToolsResponse {
+  tools: McpToolDefinition[];
+  plugins?: McpPluginSummary[];
+  warnings?: string[];
+  fingerprint?: string;
 }
 
 // Translation types

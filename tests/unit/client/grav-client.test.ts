@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GravClient } from '../../../src/client/grav-client.js';
+import { http, HttpResponse } from 'msw';
+import { mockServer } from '../../mocks/handlers.js';
 
 describe('GravClient', () => {
   const config = {
@@ -128,6 +130,19 @@ describe('GravClient', () => {
     it('throws GravApiError on 404', async () => {
       const client = new GravClient(config);
       await expect(client.get('/pages/nonexistent')).rejects.toThrow('Page not found');
+    });
+
+    it('reads the problem detail from an application/problem+json error body', async () => {
+      mockServer.use(
+        http.get('http://localhost/api/v1/kahunacart/products/999999', () =>
+          HttpResponse.json(
+            { status: 404, title: 'Not Found', detail: 'Product not found' },
+            { status: 404, headers: { 'Content-Type': 'application/problem+json' } },
+          ),
+        ),
+      );
+      const client = new GravClient(config);
+      await expect(client.get('/kahunacart/products/999999')).rejects.toThrow('Product not found');
     });
 
     it('throws GravApiError on 409 conflict', async () => {

@@ -45,6 +45,28 @@ describe('mapGravError', () => {
     expect(error.hint).toContain('ETag');
   });
 
+  it('reads data.message from a 404 that carries a data envelope', () => {
+    const error = mapGravError(404, {
+      status: 404,
+      title: 'Not Found',
+      data: { message: 'No license matches that key.', code: 'license_not_found' },
+    } as never);
+    expect(error.status).toBe(404);
+    expect(error.message).toBe('No license matches that key.');
+  });
+
+  it('passes a plugin state conflict through on 409', () => {
+    const error = mapGravError(409, {
+      status: 409,
+      title: 'Conflict',
+      detail: "Attribute 'material' is answered by 12 product(s); delete it with force to remove those values too",
+    });
+    expect(error.status).toBe(409);
+    expect(error.isRetryable).toBe(false);
+    expect(error.message).toContain('delete it with force');
+    expect(error.hint).not.toContain('ETag');
+  });
+
   it('maps 422 with field errors', () => {
     const error = mapGravError(422, {
       status: 422,

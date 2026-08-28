@@ -2,6 +2,8 @@
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createServer } from './server.js';
+import { GravApiError } from './client/error-mapper.js';
+import { loadPluginTools, type PluginToolsMode } from './tools/plugin-tools.js';
 
 interface CliConfig {
   url: string;
@@ -9,7 +11,12 @@ interface CliConfig {
   environment?: string;
   transport: 'stdio' | 'http';
   port: number;
+  pluginTools: PluginToolsMode;
 }
+
+// Startup must not hang on an unreachable site: past this, the server starts
+// with core tools only and refresh_plugin_tools can pick the rest up later.
+const PLUGIN_TOOLS_TIMEOUT_MS = 5000;
 
 function parseArgs(): CliConfig {
   const args = process.argv.slice(2);
@@ -27,6 +34,8 @@ function parseArgs(): CliConfig {
       parsed.transport = args[++i];
     } else if (arg === '--port' && args[i + 1]) {
       parsed.port = args[++i];
+    } else if (arg === '--plugin-tools' && args[i + 1]) {
+      parsed.pluginTools = args[++i];
     } else if (arg === '--help' || arg === '-h') {
       printUsage();
       process.exit(0);
@@ -41,6 +50,9 @@ function parseArgs(): CliConfig {
   const environment = parsed.environment || process.env.GRAV_ENVIRONMENT;
   const transport = (parsed.transport || 'stdio') as 'stdio' | 'http';
   const port = parseInt(parsed.port || '3100', 10);
+  const pluginTools = parsePluginTools(
+    parsed.pluginTools || process.env.GRAV_MCP_PLUGIN_TOOLS || 'all',
+  );
 
   if (!url) {
     console.error('Error: GRAV_API_URL is required. Set via --url or GRAV_API_URL environment variable.');
@@ -57,7 +69,22 @@ function parseArgs(): CliConfig {
     process.exit(1);
   }
 
-  return { url, apiKey, environment, transport, port };
+  return { url, apiKey, environment, transport, port, pluginTools };
+}
+
+function parsePluginTools(value: string): PluginToolsMode {
+  const trimmed = value.trim();
+  if (trimmed === '' || trimmed === 'all') return 'all';
+  if (trimmed === 'none') return 'none';
+
+  const slugs = trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+  if (!slugs.length) {
+    console.error(
+      `Error: Invalid --plugin-tools value "${value}". Use "all", "none", or a comma-separated list of plugin slugs.`,
+    );
+    process.exit(1);
+  }
+  return slugs;
 }
 
 function printUsage(): void {
@@ -73,6 +100,9 @@ Options:
   --environment <env>   Grav environment override (or GRAV_ENVIRONMENT env var)
   --transport <type>    Transport: stdio (default) or http
   --port <port>         HTTP port (default: 3100, only with --transport http)
+  --plugin-tools <mode> Tools published by plugins: all (default), none, or a
+                        comma-separated list of plugin slugs
+                        (or GRAV_MCP_PLUGIN_TOOLS env var)
   -h, --help            Show this help
   -v, --version         Show version
 
@@ -82,7 +112,47 @@ Examples:
 
   # HTTP transport (for remote/hosted deployment)
   grav-mcp --url https://mysite.com/api --key grav_abc123 --transport http --port 3100
+
+  # Only load the tools published by one plugin
+  grav-mcp --url https://mysite.com/api --key grav_abc123 --plugin-tools kahunacart
 `);
+}
+
+/**
+ * Loads the tools published by plugins before the transport connects, so the
+ * first tools/list a client sees already includes them. Any failure is a
+ * warning, never fatal: the server then offers core tools only, and
+ * refresh_plugin_tools can load the rest once the site is reachable.
+ */
+async function loadPluginToolsAtStartup(server: ReturnType<typeof createServer>): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+
+  try {
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`timed out after ${PLUGIN_TOOLS_TIMEOUT_MS}ms`)),
+        PLUGIN_TOOLS_TIMEOUT_MS,
+      );
+    });
+    await Promise.race([loadPluginTools(server), timeout]);
+  } catch (error) {
+    console.error(`Warning: Failed to load plugin tools: ${describePluginToolsFailure(error)}`);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function describePluginToolsFailure(error: unknown): string {
+  if (error instanceof GravApiError) {
+    if (error.status === 404) {
+      return 'this site\'s API plugin has no /mcp/tools endpoint, so it predates plugin tool manifests. Update the API plugin to load them.';
+    }
+    if (error.status === 401 || error.status === 403) {
+      return `${error.message} Plugin tools need the 'api.access' permission.`;
+    }
+    return error.message;
+  }
+  return error instanceof Error ? error.message : String(error);
 }
 
 async function main(): Promise<void> {
@@ -91,7 +161,12 @@ async function main(): Promise<void> {
     url: config.url,
     apiKey: config.apiKey,
     environment: config.environment,
+    pluginTools: config.pluginTools,
   });
+
+  if (config.pluginTools !== 'none') {
+    await loadPluginToolsAtStartup(server);
+  }
 
   if (config.transport === 'stdio') {
     const transport = new StdioServerTransport();

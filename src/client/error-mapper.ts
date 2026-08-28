@@ -29,20 +29,39 @@ export function mapGravError(status: number, body: ProblemDetail, headers?: Head
         'Check that your API key has the required permission.',
       );
 
-    case 404:
+    case 404: {
+      // A plugin route may answer 404 with its own `data` envelope rather than
+      // a problem document (KahunaCart's public license check does), so read
+      // `data.message` before falling back to the generic text.
+      const dataMessage = (body as { data?: { message?: unknown } }).data?.message;
       return new GravApiError(
-        body.detail || 'Resource not found.',
+        body.detail || (typeof dataMessage === 'string' ? dataMessage : '') || 'Resource not found.',
         404,
         false,
       );
+    }
 
-    case 409:
+    case 409: {
+      // The API's own ETag conflicts say the resource was modified. A plugin
+      // route answers 409 for state conflicts of its own (an attribute still
+      // in use, a slug already taken); pass that detail through, since an
+      // ETag retry would not resolve it.
+      const detail = body.detail || '';
+      if (detail && !/modified|etag/i.test(detail)) {
+        return new GravApiError(
+          detail,
+          409,
+          false,
+          'The request conflicts with the current state. Change the request rather than retrying it as is.',
+        );
+      }
       return new GravApiError(
         'Resource was modified by another user since you last read it.',
         409,
         true,
         'Fetch the latest version first to get a current ETag, then retry your update.',
       );
+    }
 
     case 422: {
       const fieldErrors = body.errors
