@@ -369,6 +369,18 @@ describe('Plugin-published tools', () => {
       expect(data.path).toBe('/api/v1/flex-objects/contacts');
       expect(data.body).toBeNull();
     });
+
+    it('rejects a designated body argument that is not an object', async () => {
+      serveTools(rootAndBodyToolsResponse);
+      const h = boot();
+      await loadPluginTools(h.server);
+
+      const result = await h.call('flex_update_object', { type: 'contacts', key: 'abc', object: '{"title":"T"}' });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toMatch(
+        /The 'object' argument of flex_update_object is the request body and must be an object\./,
+      );
+    });
   });
 
   describe('calling', () => {

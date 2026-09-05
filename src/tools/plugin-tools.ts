@@ -264,7 +264,9 @@ function substitutePath(definition: McpToolDefinition, values: Record<string, un
  * JSON body, so a DELETE with no `query` list puts everything in the body.
  * A tool that names a `body` argument sends that argument's object as the whole
  * body instead, so a plugin can take fields it cannot declare (a Flex object's
- * blueprint fields, say). Undefined arguments are dropped.
+ * blueprint fields, say). Leaving that argument out sends no body; passing it
+ * as anything but an object (a JSON string, typically) is an error rather than
+ * a silently empty body. Undefined arguments are dropped.
  */
 function splitArguments(
   definition: McpToolDefinition,
@@ -290,8 +292,15 @@ function splitArguments(
 
   if (bodyName !== undefined) {
     const designated = values[bodyName];
-    const isObject = typeof designated === 'object' && designated !== null && !Array.isArray(designated);
-    return { query, body: isObject ? (designated as Record<string, unknown>) : undefined };
+    if (designated === undefined) return { query, body: undefined };
+    if (typeof designated !== 'object' || designated === null || Array.isArray(designated)) {
+      throw new GravApiError(
+        `The '${bodyName}' argument of ${definition.name} is the request body and must be an object.`,
+        400,
+        false,
+      );
+    }
+    return { query, body: designated as Record<string, unknown> };
   }
 
   return { query, body: Object.keys(body).length ? body : undefined };
